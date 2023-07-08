@@ -13,7 +13,7 @@ The project is organized into several key files and folders, each serving a spec
 
 <h2> Python Files: </h2>
 
-- JARVIS Working Base Model Folder: This folder contains a rough interface for a chatbot with the ability to upload your own documents (not linked to Google Drive, embeddings, or DBs).
+- JARVIS Working Base Model Folder: This folder contains a rough interface for a chatbot with the ability to upload your own documents (not linked to Google Drive, embeddings, or DBs). Run optimizedapp.py
 
 - Several embedding and indexing.py: These files contain the functions and code related to generating embeddings and creating an index (if required) for your dataset. It includes functions for loading data, preprocessing, embedding generation, and indexing.
 
