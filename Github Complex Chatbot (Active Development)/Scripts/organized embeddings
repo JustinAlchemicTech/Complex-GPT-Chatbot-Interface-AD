@@ -1,0 +1,412 @@
+# Imports
+from operator import index
+from httplib2 import Credentials
+from werkzeug.utils import secure_filename
+import os
+import shutil
+from openai.embeddings_utils import get_embedding 
+import PyPDF2
+import flask
+from docx import Document
+from llama_index import GPTSimpleVectorIndex, SimpleDirectoryReader
+import json
+import openpyxl
+import pandas as pd
+from requests import request
+from google.oauth2 import service_account
+from google_auth_oauthlib.flow import InstalledAppFlow
+from google.auth.transport.requests import Request
+from googleapiclient.errors import HttpError
+from googleapiclient.http import MediaFileUpload
+from googleapiclient.discovery import build
+from googleapiclient.http import MediaIoBaseDownload
+import uuid
+from flask import session
+
+# Configuration
+app = flask.Flask(__name__)
+app.config["UPLOAD_FOLDER"] = "uploads"
+app.secret_key = os.environ.get("FLASK_SECRET_KEY", str(uuid.uuid4()))
+embedding_api_key = os.environ.get("EMBOPENAI_API_KEY")
+ALLOWED_EXTENSIONS = {'txt', 'docx', 'pdf', 'xlsx', 'xls'}
+CLIENT_ID = os.environ.get("CLIENT_ID")
+CLIENT_SECRET = os.environ.get("CLIENT_SECRET")
+REDIRECT_URIS = ("http://127.0.0.1:5000/oauth2callback","http://127.0.0.1:5000/authorize")
+SCOPES = ["https://www.googleapis.com/auth/drive"]
+TOKEN_URI= ["https://oauth2.googleapis.com/token"]
+
+# Embedding model parameters
+embedding_model = "text-embedding-ada-002"
+embedding_encoding = "cl100k_base"
+max_tokens = 8000
+
+# Load your credentials
+def get_credentials():
+    creds = None
+    if os.path.exists("credentials.json"):
+        flow = InstalledAppFlow.from_client_secrets_file("credentials.json", ["https://www.googleapis.com/auth/drive"])
+        creds = flow.run_local_server(port=0)
+    return creds
+
+def load_web_client_id():
+    with open("credentials.json", "r") as f:
+        credentials = credentials.json.load(f)
+    return credentials['installed']['client_id']
+
+# Function to create OAuth 2.0 flow
+def create_flow():
+    flow = flow.from_client_config(
+        client_config={
+            "installed": {
+                "client_id": CLIENT_ID,
+                "client_secret": CLIENT_SECRET,
+                "redirect_uris": REDIRECT_URIS,
+                "auth_uri": "https://www.googleapis.com/oauth2/v1/certs",
+                "token_uri": TOKEN_URI,
+            }
+        },
+        scopes=SCOPES,
+    )
+    flow.redirect_uri = REDIRECT_URIS
+    return flow
+
+@app.route("/authorize")
+def authorize():
+    flow = create_flow()
+    authorization_url, state = flow.authorization_url(
+        access_type="offline",
+        include_granted_scopes="true",
+        prompt="consent",
+        login_hint="user@example.com",  # Use the user's email address instead of a placeholder
+    )
+    flask.session["state"] = state
+    flask.session["picker_callback_url"] = flask.request.args.get("picker_callback_url", None)
+    return flask.redirect(authorization_url)
+
+@app.route("/oauth2callback")
+def oauth2callback():
+    state = flask.session["state"]
+    picker_callback_url = flask.session.get("picker_callback_url", None)
+
+    flow = create_flow()
+    flow.fetch_token(authorization_response=request.url)
+
+    creds = flow.credentials
+    flask.session["credentials"] = creds.to_json()
+
+    if picker_callback_url:
+        return flask.redirect(picker_callback_url)
+    else:
+        return flask.redirect(flask.url_for("index"))
+
+@app.route("/picker_callback")
+def picker_callback():
+    return flask.render_template("picker_callback.html")
+
+# Upload a file to Google Drive
+def upload_file_to_google_drive(filename, filepath):
+    try:
+        creds = get_credentials()
+        if not creds:
+            print("No credentials available.")
+            return
+
+        service = build("drive", "v3", credentials=creds)
+        file_metadata = {"name": filename}
+        media = MediaFileUpload(filepath, resumable=True)
+
+        file = (
+            service.files()
+            .create(body=file_metadata, media_body=media, fields="id")
+            .execute()
+        )
+        print(F"File ID: {file.get('id')}")
+    except HttpError as error:
+        print(F"An error occurred: {error}")
+        file = None
+
+    return file
+
+def list_files_in_google_drive():
+    try:
+        creds = get_credentials()
+        if not creds:
+            print("No credentials available.")
+            return []
+
+        service = build("drive", "v3", credentials=creds)
+        results = service.files().list(
+            pageSize=10, fields="nextPageToken, files(id, name)"
+        ).execute()
+        items = results.get("files", [])
+
+        return items
+    except HttpError as error:
+        print(F"An error occurred: {error}")
+        return []
+
+def download_file_from_google_drive(file_id, file_name):
+    try:
+        creds = get_credentials()
+        if not creds:
+            print("No credentials available.")
+            return None
+
+        service = build("drive", "v3", credentials=creds)
+        request = service.files().get_media(fileId=file_id)
+        file_path = os.path.join(app.config["UPLOAD_FOLDER"], file_name)
+        with open(file_path, "wb") as f:
+            downloader = MediaIoBaseDownload(f, request)
+            done = False
+            while done is False:
+                status, done = downloader.next_chunk()
+                print(F"Download progress: {int(status.progress() * 100)}%")
+
+        return file_path
+    except HttpError as error:
+        print(F"An error occurred: {error}")
+        return None
+    
+@app.route("/download/<file_id>/<file_name>")
+def download(file_id, file_name):
+    if "credentials" not in flask.session:
+        return flask.redirect(flask.url_for("authorize"))
+
+    # Load user's credentials from the session
+    creds = Credentials.from_authorized_user_info(info=flask.session["credentials"])
+
+    try:
+        # Create a Drive API client
+        drive_service = build("drive", "v3", credentials=creds)
+
+        # Download the specified file from Google Drive
+        request = drive_service.files().get_media(fileId=file_id)
+        file_path = f"downloads/{file_name}"
+        os.makedirs(os.path.dirname(file_path), exist_ok=True)
+
+        with open(file_path, "wb") as file:
+            downloader = MediaIoBaseDownload(file, request)
+            done = False
+            while done is False:
+                status, done = downloader.next_chunk()
+                print(f"Download progress: {int(status.progress() * 100)}%")
+    except HttpError as error:
+        print(F"An error occurred: {error}")
+        return "Error occurred while downloading the file.", 500
+
+    return "File downloaded successfully.", 200
+
+@app.route("/upload_file", methods=["POST"])
+def upload_file():
+    file_id = request.form.get("file_id")
+    file_name = request.form.get("file_name")
+
+    if not file_id or not file_name:
+        return "Missing file ID or file name", 400
+
+    downloaded_file_path = download_file_from_google_drive(file_id, file_name)
+    if not downloaded_file_path:
+        return "Failed to download file from Google Drive", 500
+
+    index = index_uploaded_document(downloaded_file_path)
+    if index:
+        return "File downloaded from Google Drive and indexed successfully", 200
+    else:
+        return "Failed to index the document", 500
+
+# SimpleDirectoryReader class definition
+class SimpleDirectoryReader:
+    def __init__(self, directory_path):
+        self.directory_path = directory_path
+
+    def load_data(self):
+        """
+        Load documents from the specified directory and return a list of dictionaries with the document titles and content.
+        """
+        documents = []
+        for root, _, files in os.walk(self.directory_path):
+            for file in files:
+                file_path = os.path.join(root, file)
+                file_name, file_extension = os.path.splitext(file)
+
+                if file_extension.lower() == '.txt':
+                    with open(file_path, 'r', encoding='utf-8') as f:
+                        content = f.read()
+                    documents.append({"title": file_name, "content": content})
+                elif file_extension.lower() == '.docx':
+                    doc = Document(file_path)
+                    content = "\n".join([para.text for para in doc.paragraphs])
+                    documents.append({"title": file_name, "content": content})
+                elif file_extension.lower() == '.pdf':
+                    pdf_file = PyPDF2.PdfFileReader(file_path)
+                    content = ""
+                    for page_num in range(pdf_file.getNumPages()):
+                        content += pdf_file.getPage(page_num).extractText()
+                    documents.append({"title": file_name, "content": content})
+                elif file_extension.lower() in ['.xlsx', '.xls']:
+                    workbook = openpyxl.load_workbook(file_path)
+                    content = ""
+                    for sheet in workbook:
+                        for row in sheet.iter_rows():     
+                          row_data = [str(cell.value) for cell in row]
+                          content += "\t".join(row_data) + "\n"
+                          documents.append({"title": file_name, "content": content})
+        return documents
+
+    def load_single_document(self, file_path):
+        """
+        Load a single document from the specified file path and return a dictionary with the document title and content.
+        """
+        file_name, file_extension = os.path.splitext(file_path)
+        content = ""
+
+        if file_extension.lower() == '.txt':
+            with open(file_path, 'r', encoding='utf-8') as f:
+                content = f.read()
+        elif file_extension.lower() == '.docx':
+            doc = Document(file_path)
+            content = "\n".join([para.text for para in doc.paragraphs])
+        elif file_extension.lower() == '.pdf':
+            pdf_file = PyPDF2.PdfFileReader(file_path)
+            for page_num in range(pdf_file.getNumPages()):
+                content += pdf_file.getPage(page_num).extractText()
+        elif file_extension.lower() in ['.xlsx', '.xls']:
+            workbook = openpyxl.load_workbook(file_path)
+            content = ""
+            for sheet in workbook:
+                for row in sheet.iter_rows():     
+                    row_data = [str(cell.value) for cell in row]
+                    content += "\t".join(row_data) + "\n"
+
+        return {"title": file_name, "content": content}
+from werkzeug.utils import secure_filename
+
+def allowed_file(filename):
+    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+
+# Functions
+def create_embeddings(embedding_api_key, directory_path):
+    # Load the documents from the specified directory using the SimpleDirectoryReader
+    documents = SimpleDirectoryReader(directory_path).load_data()
+    
+    # Create a list of dictionaries containing the title, content, and embedding for each document
+    embeddings_list = [
+        {
+            "title": document["title"],
+            "content": document["content"],
+            "embedding": get_embedding(document["content"], model="text-embedding-ada-002"),
+        }
+        for document in documents
+    ]
+
+    # Create a DataFrame from the list of dictionaries
+    embeddings_df = pd.DataFrame(embeddings_list)
+    
+    return embeddings_df
+
+# Index creation and saving
+# Create the embeddings for all documents in the directory and save them to a DataFrame
+directory_path = "./data"
+embeddings_df = create_embeddings(embedding_api_key, directory_path)
+embeddings_df.to_json("embeddings.json", orient="records")
+
+# Save the embeddings DataFrame to a JSON file
+embeddings_df.to_json("embeddings.json", orient="records")
+
+# Create an index using the GPTSimpleVectorIndex class with the embeddings DataFrame
+index = GPTSimpleVectorIndex(embeddings_df)
+
+# Save the index to a JSON file
+index.save_to_disk("index.json")
+
+def index_uploaded_document(filepath):
+    # Set the data folder path
+    data_folder = './data'
+    
+    # Get the base name of the uploaded file and create a new file path within the data folder
+    filename = os.path.basename(filepath)
+    new_filepath = os.path.join(data_folder, filename)
+    
+    # Move the uploaded file to the data folder
+    shutil.move(filepath, new_filepath)
+
+    # Load the content of the single document using the SimpleDirectoryReader
+    document = SimpleDirectoryReader(data_folder).load_single_document(new_filepath)
+    
+    # Generate the embedding for the document's content
+    embedding = get_embedding(document["content"], model="text-embedding-ada-002")
+
+    # Load existing embeddings from the file
+    with open("embeddings.json", "r") as f:
+        embeddings_list = json.load(f)
+
+    # Add the new embedding to the list
+    embeddings_list.append({
+        "title": filename,
+        "content": document["content"],
+        "embedding": embedding.tolist(),
+    })
+
+    # Save the updated embeddings list to the file
+    with open("embeddings.json", "w") as f:
+        json.dump(embeddings_list, f)
+
+    # Create a DataFrame from the updated list of embeddings and save it to the index file
+    embeddings_df = pd.DataFrame(embeddings_list)
+    index = GPTSimpleVectorIndex(embeddings_df)
+    index.save_to_disk("index.json")
+
+    return index
+
+# App routes
+def upload_file():
+    # Check if the request method is POST (file upload)
+    if flask.request.method == 'POST':
+        # Check if there's a file in the request
+        if 'file' not in flask.request.files:
+            flask.flash('No file part')
+            return flask.redirect(request.url)
+
+        # Get the file from the request
+        file = request.files['file']
+        
+        # Check if a filename is provided
+        if file.filename == '':
+            flask.flash('No selected file')
+            return flask.redirect(request.url)
+
+        # Check if the file has an allowed extension and save the file
+        if file and allowed_file(file.filename):
+            filename = secure_filename(file.filename)
+            filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+            file.save(filepath)
+            
+            # Index the uploaded document
+            index = index_uploaded_document(filepath)
+            flask.flash('File uploaded and indexed successfully')
+            
+            # Redirect to the upload page
+            return flask.redirect(flask.url_for('upload_file'))
+
+    # Render the upload page if the request method is GET or the file is not uploaded
+    return flask.render_template('upload.html')
+
+# Main program
+@app.route('/', methods=['GET'])
+def index():
+    return flask.render_template('upload.html')
+
+if __name__ == "__main__":
+    app.run(debug=True, port=5000)
+    # Set the directory path for the data
+    directory_path = './data'
+
+    # Create embeddings for the documents in the directory
+    embeddings_df = create_embeddings(embedding_api_key, directory_path)
+
+    # Save the embeddings to a JSON file
+    embeddings_df.to_json("embeddings.json", orient="records")
+
+    # Run the Flask app
+    app.run()
+

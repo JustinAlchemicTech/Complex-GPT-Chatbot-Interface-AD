@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document Uploader</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f0f0f0;
+        }
+
+        h1 {
+            text-align: center;
+            color: #2e67ff;
+            font-size: 2rem;
+            margin-bottom: 20px;
+        }
+
+        form {
+            display: flex;
+            flex-direction: column;
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #fff;
+            box-shadow: 0 3px 5px rgba(0, 0, 0, 0.1);
+            border-radius: 5px;
+        }
+
+        input[type="file"],
+        input[type="text"] {
+            margin-bottom: 10px;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+        }
+
+        button[type="submit"] {
+            padding: 10px 20px;
+            background-color: #2e67ff;
+            border: none;
+            color: #fff;
+            font-size: 1rem;
+            cursor: pointer;
+            border-radius: 5px;
+        }
+
+        button[type="submit"]:hover {
+            background-color: #1a47b7;
+        }
+
+        .message {
+            text-align: center;
+            color: #2e67ff;
+            margin-bottom: 20px;
+        }
+    </style>
+    <script src="https://apis.google.com/js/api.js" async defer></script>
+</head>
+<body>
+    <h1>Upload and Categorize Documents</h1>
+    <div class="message" id="message"></div>
+    <form id="upload-form">
+        <input type="file" name="file" id="file" accept=".pdf,.docx" required>
+        <input type="text" name="category" id="category" placeholder="Category" required>
+        <button type="submit">Upload</button>
+        <button type="button" id="google-drive-picker">Select from Google Drive</button>
+    </form>
+    <script>
+        let clientId, clientSecret, apiKey;
+        async function loadPicker() {
+            await fetch('/credentials.json')
+                .then(response => response.json())
+                .then(data => {
+                    clientId = data.client_id;
+                    clientSecret = data.client_secret;
+                    apiKey = data.api_key;
+                });
+        }
+
+        loadPicker();
+
+        const scope = ['https://www.googleapis.com/auth/drive.readonly'];
+        let pickerApiLoaded = false;
+        let oauthToken;
+
+        function onAuthApiLoad() {
+            window.gapi.auth.authorize({
+                'client_id': clientId,
+                'scope': scope,
+                'immediate': false
+            }, handleAuthResult);
+        }
+
+        function onPickerApiLoad() {
+            pickerApiLoaded = true;
+            createPicker();
+        }
+
+        function handleAuthResult(authResult) {
+            if (authResult && !authResult.error) {
+                oauthToken = authResult.access_token;
+                createPicker();
+            }
+        }
+
+        function createPicker() {
+            if (pickerApiLoaded && oauthToken) {
+                var picker = new google.picker.PickerBuilder()
+                    .addView(google.picker.ViewId.DOCS)
+                    .setOAuthToken(oauthToken)
+                    .setDeveloperKey(apiKey)
+                    .setCallback(pickerCallback)
+                    .build();
+                picker.setVisible(true);
+            }
+        }
+
+        function pickerCallback(data) {
+            if (data.action == google.picker.Action.PICKED) {
+                var fileId = data.docs[0].id;
+                downloadFileFromGoogleDrive(fileId);
+            }
+        }
+
+        // Load Picker and Auth APIs
+        gapi.load('auth', {'callback': onAuthApiLoad});
+        gapi.load('picker', {'callback': onPickerApiLoad});
+
+        document.getElementById("upload-form").addEventListener("submit", function(event) {
+            event.preventDefault();
+
+            const fileInput = document.getElementById("file");
+            const messageDiv = document.getElementById("message");
+
+            if (fileInput.files.length > 0) {
+                const formData = new FormData();
+                formData.append("file", fileInput.files[0]);
+
+                // Interact with your Flask server
+                fetch('/upload_file', {
+                    method: 'POST',
+                    body: formData
+                })
+                .then(response => {
+                    if (response.ok) {
+                        return response.text();
+                    } else {
+                        throw new Error('Error uploading file.');
+                    }
+                })
+                .then(result => {
+                    messageDiv.textContent = "File uploaded and indexed successfully.";
+                    fileInput.value = "";
+                })
+                .catch(error => {
+                    messageDiv.textContent = "Error uploading file.";
+                });
+            }
+        });
+
+        document.getElementById("google-drive-picker").addEventListener("click", function() {
+            if (clientId) {
+                createPicker();
+            } else {
+                alert("Google Drive client ID is not loaded yet.");
+            }
+        });
+    </script>
+</body>
+</html>
+
+

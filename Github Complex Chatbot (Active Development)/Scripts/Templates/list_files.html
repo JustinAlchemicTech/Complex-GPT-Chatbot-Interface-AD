@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.0/css/bootstrap.min.css">
+    <title>Select a file from Google Drive</title>
+</head>
+<body>
+    <div class="container mt-5">
+        <h1>Select a file from Google Drive</h1>
+        <form method="post" action="{{ url_for('upload_file') }}">
+            {% for file in files %}
+                <div class="form-check">
+                    <input class="form-check-input" type="radio" name="file_id" value="{{ file.id }}" id="{{ file.id }}">
+                    <label class="form-check-label" for="{{ file.id }}">
+                        {{ file.name }}
+                    </label>
+                </div>
+            {% endfor %}
+            <input type="hidden"

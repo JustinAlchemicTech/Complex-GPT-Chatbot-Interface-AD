@@ -1,0 +1,10 @@
+CREATE MODEL 
+PREDICT response
+USING
+engine = 'openai',
+max_tokens = 300,
+-- api_key = '',
+model_name = 'gpt-3.5-turbo', 
+prompt_template = 'From input message: {{text}}\
+by from_user: {{author_username}}\
+[];
