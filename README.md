@@ -4,9 +4,11 @@
 Welcome to this active development project by Alchemic Technology. Please note that this is a work in progress, and as such, you may encounter several reference files and potential errors. We encourage you to build upon and reference sections as you see fit.
 
 <h2> Project Structure: </h2> 
+
 The project is organized into several key files and folders, each serving a specific purpose:
 
 <h2> Python Files: </h2>
+
 - embedding_and_indexing.py: This file contains the functions and code related to generating embeddings and creating an index (if required) for your dataset. It includes functions for loading data, preprocessing, embedding generation, and indexing.
 
 - response_chatbot.py: This file contains the functions and code for interacting with the chatbot, such as sending user input to the model and receiving responses. It includes functions for processing user input, calling the appropriate APIs (like GPT-3.5 Turbo), and formatting the responses.
@@ -18,6 +20,7 @@ The project is organized into several key files and folders, each serving a spec
 - setting up a web crawler.py: This file contains code for the setup of a web crawler.
 
 <h2> HTML Templates: </h2>
+
 The project includes several HTML templates for various functionalities of the chatbot:
 
 - Chatbot interface
@@ -27,6 +30,7 @@ The project includes several HTML templates for various functionalities of the c
 - File upload
 
 <h2> JSON Files: </h2>
+
 The project uses JSON files for various purposes:
 
 - credentials.json: Contains the credentials for various services.
@@ -34,12 +38,15 @@ The project uses JSON files for various purposes:
 - index.json: Contains the index created for the dataset.
 
 <h2> Docker Folder: </h2>
+
 The Docker folder contains the setup for MindsDB, a machine learning tool.
 
 <h2> Contributing: </h2>
+
 We welcome contributions to this project. Feel free to submit pull requests or raise issues if you encounter any problems or have suggestions for improvements.
 
 <h2> Contact: </h2>
+
 For any queries or issues, please raise an issue on this repository, and we'll do our best to assist you.
 
 Sincerely,
