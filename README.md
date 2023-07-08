@@ -7,15 +7,15 @@ Project Structure
 The project is organized into several key files and folders, each serving a specific purpose:
 
 Python Files:
-embedding_and_indexing.py: This file contains the functions and code related to generating embeddings and creating an index (if required) for your dataset. It includes functions for loading data, preprocessing, embedding generation, and indexing.
+- embedding_and_indexing.py: This file contains the functions and code related to generating embeddings and creating an index (if required) for your dataset. It includes functions for loading data, preprocessing, embedding generation, and indexing.
 
-response_chatbot.py: This file contains the functions and code for interacting with the chatbot, such as sending user input to the model and receiving responses. It includes functions for processing user input, calling the appropriate APIs (like GPT-3.5 Turbo), and formatting the responses.
+- response_chatbot.py: This file contains the functions and code for interacting with the chatbot, such as sending user input to the model and receiving responses. It includes functions for processing user input, calling the appropriate APIs (like GPT-3.5 Turbo), and formatting the responses.
 
-utils.py: This file contains utility functions, such as tokenization, cosine similarity, etc., that can be used by both embedding_and_indexing.py and response_chatbot.py.
+- utils.py: This file contains utility functions, such as tokenization, cosine similarity, etc., that can be used by both embedding_and_indexing.py and response_chatbot.py.
 
-googledrive_integration.py and quickstart.py: These files contain the code for integrating with Google Drive.
+- googledrive_integration.py and quickstart.py: These files contain the code for integrating with Google Drive.
 
-web_crawler_setup.py: This file contains the setup for a web crawler.
+- web_crawler_setup.py: This file contains the setup for a web crawler.
 
 HTML Templates:
 The project includes several HTML templates for various functionalities of the chatbot:
