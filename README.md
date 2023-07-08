@@ -1,7 +1,11 @@
 # Complex Custom GPT JARVIS Chatbot Interface (Active Development)
 
-<h2> Active Developement Notice </h2>
+<h2> Active Developement Notice: </h2>
 Welcome to this active development project by Alchemic Technology. Please note that this is a work in progress, and as such, you may encounter several reference files and potential errors. We encourage you to build upon and reference sections as you see fit.
+
+<h2> Project Overview and Goals: </h2> 
+
+The ultimate vision for this project is to create a highly customizable, user-friendly chatbot that allows users to upload their own files for embedding, vectorizing, and storing in a personal database for easy retrieval. This includes seamless integration with Google Drive for direct file uploads and the ability to remember the entirety of your conversation for a more personalized interaction. We aim to enhance the chatbot's capabilities by enabling web browsing, fetching and processing information from the internet, and future plans include image interpretation capabilities. We're also exploring the integration of different language models for user flexibility. Additionally, we aspire to link the chatbot to your own Notion databases, further expanding its functionality. Please note, while significant progress has been made, not all desired functionalities are available in the current codebase, but we're continuously working to enhance the system and bring this vision to life.
 
 <h2> Project Structure: </h2> 
 
@@ -9,7 +13,7 @@ The project is organized into several key files and folders, each serving a spec
 
 <h2> Python Files: </h2>
 
-- embedding_and_indexing.py: This file contains the functions and code related to generating embeddings and creating an index (if required) for your dataset. It includes functions for loading data, preprocessing, embedding generation, and indexing.
+- Several embedding and indexing.py: These files contain the functions and code related to generating embeddings and creating an index (if required) for your dataset. It includes functions for loading data, preprocessing, embedding generation, and indexing.
 
 - response_chatbot.py: This file contains the functions and code for interacting with the chatbot, such as sending user input to the model and receiving responses. It includes functions for processing user input, calling the appropriate APIs (like GPT-3.5 Turbo), and formatting the responses.
 
