@@ -13,6 +13,8 @@ The project is organized into several key files and folders, each serving a spec
 
 <h2> Python Files: </h2>
 
+- JARVIS Working Base Model Folder: This folder contains a rough interface for a chatbot with the ability to upload your own documents (not linked to Google Drive, embeddings, or DBs).
+
 - Several embedding and indexing.py: These files contain the functions and code related to generating embeddings and creating an index (if required) for your dataset. It includes functions for loading data, preprocessing, embedding generation, and indexing.
 
 - response_chatbot.py: This file contains the functions and code for interacting with the chatbot, such as sending user input to the model and receiving responses. It includes functions for processing user input, calling the appropriate APIs (like GPT-3.5 Turbo), and formatting the responses.
