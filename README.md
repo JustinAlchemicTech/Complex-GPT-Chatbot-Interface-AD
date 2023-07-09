@@ -14,6 +14,12 @@ Welcome to this active development project by Alchemic Technology. Please note t
 
 The ultimate vision for this project is to create a highly customizable, user-friendly chatbot that allows users to upload their own files for embedding, vectorizing, and storing in a personal database for easy retrieval. This includes seamless integration with Google Drive for direct file uploads and the ability to remember the entirety of your conversation for a more personalized interaction. We aim to enhance the chatbot's capabilities by enabling web browsing, fetching and processing information from the internet, and future plans include image interpretation capabilities. We're also exploring the integration of different language models for user flexibility. Additionally, we aspire to link the chatbot to your own Notion databases, further expanding its functionality. Please note, while significant progress has been made, not all desired functionalities are available in the current codebase, but we're continuously working to enhance the system and bring this vision to life.
 
+<img src= "https://i.imgur.com/8RMadQO.jpg"/>
+<br />
+
+<img src= "https://i.imgur.com/xZBfn9S.jpg"/>
+<br />
+
 <h2> Project Structure: </h2> 
 
 The project is organized into several key files and folders, each serving a specific purpose:
